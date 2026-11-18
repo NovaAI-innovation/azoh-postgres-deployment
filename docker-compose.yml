@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: azoh
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env or the shell}"
+    ports:
+      - "127.0.0.1:${AZOH_POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./docker-init.sql:/docker-entrypoint-initdb.d/01-azoh.sql:ro
+      - ./deploy.sql:/opt/azoh/deploy.sql:ro
+      - ./01_agent_zero.sql:/opt/azoh/01_agent_zero.sql:ro
+      - ./02_orchestration.sql:/opt/azoh/02_orchestration.sql:ro
+      - ./03_hermes.sql:/opt/azoh/03_hermes.sql:ro
+      - ./access.sql:/opt/azoh/access.sql:ro
+      - ./verify.sql:/opt/azoh/verify.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          PGPASSWORD="$$POSTGRES_PASSWORD" psql -X -v ON_ERROR_STOP=1
+          -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+          -c 'SELECT 1 FROM orchestration.workflow_runs LIMIT 0' >/dev/null
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  postgres_data:
